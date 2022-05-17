@@ -23,11 +23,6 @@ public class GridController : MonoBehaviour
         }
     }
 
-    private bool IsValidTetrominoPosition(BaseTetromino tetromino)
-    {
-        return IsValidTetrominoPosition(tetromino, (int) tetromino.transform.position.x, (int) tetromino.transform.position.y);
-    }
-
     private bool IsValidTetrominoPosition(BaseTetromino tetromino, int xBase, int yBase)
     {
         foreach (int[] indices in tetromino.GetBlockStructureEnumerator())
