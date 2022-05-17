@@ -63,11 +63,9 @@ public abstract class BaseTetromino : MonoBehaviour
     // Note that this is 0 indexed and for most tetrominos the first drawn row is empty
     public virtual int SpawnY { get { return 20; } }
 
-
     public RotationState currentRotation = RotationState.Zero;
     public abstract Color blockColor { get; }
     public bool isGhost = false;
-    private GameObject[,] blockObjs;
 
     private void Start()
     {
@@ -76,31 +74,26 @@ public abstract class BaseTetromino : MonoBehaviour
 
     public void Draw()
     {
-        if (blockObjs == null)
+        // Create individual blocks if needed
+        bool isBlocksExists = transform.childCount > 0;
+
+        // Iterate through invdividual blocks and update
+        for (int i = 0; i < BlockStructureStates.GetLength(1) * BlockStructureStates.GetLength(2); i++)
         {
-            blockObjs = new GameObject[BlockStructureStates.GetLength(1), BlockStructureStates.GetLength(2)];
-        }
-        for (int rowIndex = 0; rowIndex < BlockStructureStates.GetLength(1); rowIndex++)
-        {
-            for (int colIndex = 0; colIndex < BlockStructureStates.GetLength(2); colIndex++)
+            int rowIndex = i / BlockStructureStates.GetLength(1);
+            int colIndex = i % BlockStructureStates.GetLength(1);
+
+            if (!isBlocksExists)
             {
-                if (!blockObjs[rowIndex, colIndex])
-                {
-                    GameObject blockObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    blockObj.transform.SetParent(gameObject.transform);
-                    blockObj.transform.localPosition = new Vector3(colIndex, rowIndex);
-                    blockObj.transform.localScale = new Vector3(0.92f, 0.92f, 0.92f);
-                    if (isGhost)
-                    {
-                        blockObj.GetComponent<Renderer>().material.SetColor("_Color", Color.gray);
-                    } else
-                    {
-                        blockObj.GetComponent<Renderer>().material.SetColor("_Color", blockColor);
-                    }
-                    blockObjs[rowIndex, colIndex] = blockObj;
-                }
-                blockObjs[rowIndex, colIndex].SetActive(BlockStructureStates[(int)currentRotation, rowIndex, colIndex]);
+                GameObject blockObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                blockObj.transform.SetParent(gameObject.transform);
+                blockObj.transform.localPosition = new Vector3(colIndex, rowIndex);
+                blockObj.transform.localScale = new Vector3(0.92f, 0.92f, 0.92f);
             }
+
+            GameObject childObj = transform.GetChild(i).gameObject;
+            childObj.GetComponent<Renderer>().material.SetColor("_Color", isGhost ? Color.gray : blockColor);
+            childObj.SetActive(BlockStructureStates[(int)currentRotation, rowIndex, colIndex]);
         }
     }
 

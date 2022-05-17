@@ -25,7 +25,8 @@ public class GameManager : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        GenerateNewTetrominoBag();
+        GenerateNewTetrominoBag(); // Shuffle tetrominoBagNext
+        GenerateNewTetrominoBag(); // Shuffled bag is set to active bag
         gridController.InitializeGrid();
         SpawnNewTetromino();
     }
@@ -73,7 +74,7 @@ public class GameManager : MonoBehaviour
             tetrominoBagActive[i] = tetrominoBagNext[i];
         }
 
-        // Shuffle next tetromino bag
+        // Shuffle next tetromino bag to "generate" a new bag
         for (int j = tetrominoBagNext.Length - 1; j > 0; j--)
         {
             int k = Random.Range(0, tetrominoBagNext.Length);

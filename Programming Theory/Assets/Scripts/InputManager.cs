@@ -28,7 +28,7 @@ public class InputManager : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.LeftArrow))
         {
             SetMoveDirection(MoveDirection.Left);
-            if (grid.ShiftTetrominoPosition(gameManager.tetrominoActive, -1))
+            if (grid.ShiftTetrominoPosition(gameManager.tetrominoActive, (int) lastMoveDirection))
             {
                 gameManager.OnSuccessfulTetrominoMove();
             }
@@ -36,7 +36,7 @@ public class InputManager : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.RightArrow))
         {
             SetMoveDirection(MoveDirection.Right);
-            if (grid.ShiftTetrominoPosition(gameManager.tetrominoActive, 1))
+            if (grid.ShiftTetrominoPosition(gameManager.tetrominoActive, (int) lastMoveDirection))
             {
                 gameManager.OnSuccessfulTetrominoMove();
             }
