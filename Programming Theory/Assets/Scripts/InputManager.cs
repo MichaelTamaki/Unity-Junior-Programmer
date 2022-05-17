@@ -7,36 +7,88 @@ public class InputManager : MonoBehaviour
     [SerializeField] private GameManager gameManager;
     [SerializeField] private GridController grid;
 
+    // When holding down left/right arrow, trigger shift automatically
+    // - One "longer" pause
+    // - "Shorter" pauses afterwards
+    private bool isUseMoveDelayFirst = true;
+    private readonly float moveDelayFirst = 0.15f;
+    private readonly float moveDelayContinuous = 0.05f;
+    private float currentMoveTime = 0f;
+    private enum MoveDirection
+    {
+        Left = -1,
+        Right = 1
+    }
+    private MoveDirection lastMoveDirection; // Just in case both left and right keys are held, use the last key pressed
+
     // Update is called once per frame
     void Update()
     {
-        // Horizontal movement
+        // Horizontal movement -- immediate action after key down
         if (Input.GetKeyDown(KeyCode.LeftArrow))
         {
-            if (grid.ShiftTetrominoPosition(gameManager.activeTetromino, -1))
+            SetMoveDirection(MoveDirection.Left);
+            if (grid.ShiftTetrominoPosition(gameManager.tetrominoActive, (int) lastMoveDirection))
             {
                 gameManager.OnSuccessfulTetrominoMove();
             }
         }
-        else if (Input.GetKeyDown(KeyCode.RightArrow))
+        if (Input.GetKeyDown(KeyCode.RightArrow))
         {
-            if (grid.ShiftTetrominoPosition(gameManager.activeTetromino, 1))
+            SetMoveDirection(MoveDirection.Right);
+            if (grid.ShiftTetrominoPosition(gameManager.tetrominoActive, (int) lastMoveDirection))
             {
                 gameManager.OnSuccessfulTetrominoMove();
+            }
+        }
+
+        // Horizontal movement -- delayed action after holding
+        if (
+            (
+                Input.GetKey(KeyCode.LeftArrow)
+                && lastMoveDirection == MoveDirection.Left
+            )
+            || (
+                Input.GetKey(KeyCode.RightArrow)
+                && lastMoveDirection == MoveDirection.Right
+            )
+        )
+        {
+            currentMoveTime += Time.deltaTime;
+
+            if (isUseMoveDelayFirst)
+            {
+                if (currentMoveTime > moveDelayFirst)
+                {
+                    isUseMoveDelayFirst = false;
+                    currentMoveTime = 0f;
+                    if (grid.ShiftTetrominoPosition(gameManager.tetrominoActive, (int) lastMoveDirection))
+                    {
+                        gameManager.OnSuccessfulTetrominoMove();
+                    }
+                }
+            }
+            else if (currentMoveTime > moveDelayContinuous)
+            {
+                currentMoveTime = 0f;
+                if (grid.ShiftTetrominoPosition(gameManager.tetrominoActive, (int) lastMoveDirection))
+                {
+                    gameManager.OnSuccessfulTetrominoMove();
+                }
             }
         }
 
         // Rotation
         if (Input.GetKeyDown(KeyCode.X))
         {
-            if (grid.RotateTetromino(gameManager.activeTetromino, true))
+            if (grid.RotateTetromino(gameManager.tetrominoActive, true))
             {
                 gameManager.OnSuccessfulTetrominoMove();
             }
         }
         else if (Input.GetKeyDown(KeyCode.Z))
         {
-            if (grid.RotateTetromino(gameManager.activeTetromino, false))
+            if (grid.RotateTetromino(gameManager.tetrominoActive, false))
             {
                 gameManager.OnSuccessfulTetrominoMove();
             }
@@ -57,5 +109,13 @@ public class InputManager : MonoBehaviour
         {
             gameManager.PlaceAndSpawnTetromino();
         }
+    }
+
+    // Helper fn to reset variables for the delayed shift on key hold
+    private void SetMoveDirection(MoveDirection moveDirection)
+    {
+        isUseMoveDelayFirst = true;
+        currentMoveTime = 0f;
+        lastMoveDirection = moveDirection;
     }
 }
