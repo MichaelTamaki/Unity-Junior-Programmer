@@ -135,4 +135,10 @@ public abstract class BaseTetromino : MonoBehaviour
         }
         return kickTranslations;
     }
+
+    public void ResetRotationAndDraw()
+    {
+        currentRotation = RotationState.Zero;
+        Draw();
+    }
 }

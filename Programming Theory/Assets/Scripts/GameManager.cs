@@ -6,9 +6,11 @@ public class GameManager : MonoBehaviour
 {
     [SerializeField] private InputManager inputManager;
     [SerializeField] private GridController gridController;
-    public BaseTetromino tetrominoNext;
+    private BaseTetromino tetrominoNext;
     public BaseTetromino tetrominoActive;
-    public BaseTetromino tetrominoGhost;
+    private BaseTetromino tetrominoGhost;
+    private BaseTetromino tetrominoHold;
+    private bool isHoldTriggered = false; // Don't allow hold to be triggered twice in a row before dropping a tetromino
     // Keep track of tetromino queue with two bags. This is because we show a queue, and the index may be the last item in the bag.
     // So we must pre-generate the next bag.
     private readonly System.Type[] tetrominoBagNext = { typeof(TetrominoJ), typeof(TetrominoL), typeof(TetrominoS), typeof(TetrominoZ), typeof(TetrominoT), typeof(TetrominoO), typeof(TetrominoI) };
@@ -28,7 +30,7 @@ public class GameManager : MonoBehaviour
         GenerateNewTetrominoBag(); // Shuffle tetrominoBagNext
         GenerateNewTetrominoBag(); // Shuffled bag is set to active bag
         gridController.InitializeGrid();
-        SpawnNewTetromino();
+        SpawnNewTetromino(true);
     }
 
     private void Update()
@@ -63,7 +65,8 @@ public class GameManager : MonoBehaviour
     public void PlaceAndSpawnTetromino()
     {
         gridController.PlaceTetromino(tetrominoActive);
-        SpawnNewTetromino();
+        SpawnNewTetromino(true);
+        isHoldTriggered = false; // Allow hold to be triggered again
     }
 
     private void GenerateNewTetrominoBag()
@@ -84,14 +87,45 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    private void SpawnNewTetromino()
+    // Sets the active and ghost tetromino
+    // This does not update the next/hold tetromino, so this should be done by the consumer
+    private void SetActiveAndGhostTetromino(BaseTetromino newTetromino, bool destroyTetrominoActive)
     {
         // Reset timers
         ResetDropTime();
         ResetLockTime();
 
-        // Choose new tetromino
-        System.Type newTetrominoType = tetrominoBagActive[tetrominoBagIndex++];
+        // Clone the new tetromino to active
+        if (destroyTetrominoActive && tetrominoActive != null)
+        {
+            Destroy(tetrominoActive.gameObject);
+        }
+        GameObject tetrominoActiveObj = Instantiate(newTetromino.gameObject, gridController.transform);
+        tetrominoActive = tetrominoActiveObj.GetComponent<BaseTetromino>();
+        tetrominoActiveObj.transform.localPosition = new Vector3(tetrominoActive.SpawnX, tetrominoActive.SpawnY);
+
+        // Attempt dropping active tetromino 1 space
+        if (!gridController.DropTetrominoOneSpace(tetrominoActive))
+        {
+            Debug.Log("Game over!");
+        }
+
+        // Set the new tetromino to ghost
+        if (tetrominoGhost != null)
+        {
+            Destroy(tetrominoGhost.gameObject);
+        }
+        GameObject tetrominoGhostObj = newTetromino.gameObject;
+        tetrominoGhost = tetrominoGhostObj.GetComponent<BaseTetromino>();
+        tetrominoGhost.isGhost = true;
+        UpdateGhostTetromino();
+    }
+
+    // Spawns a new tetromino from the bag. Use this when a tetromino is dropped.
+    private void SpawnNewTetromino(bool destroyTetrominoActive)
+    {
+        // Choose new next tetromino
+        System.Type newTetrominoNextType = tetrominoBagActive[tetrominoBagIndex++];
         if (tetrominoBagIndex >= tetrominoBagActive.Length)
         {
             GenerateNewTetrominoBag();
@@ -99,46 +133,50 @@ public class GameManager : MonoBehaviour
         }
 
         // Create new next tetromino
-        GameObject tetrominoNextObj = new GameObject("Tetromino", newTetrominoType);
-        tetrominoNextObj.transform.SetParent(gridController.transform);
+        GameObject newTetrominoNextObj = new GameObject("Tetromino", newTetrominoNextType);
+        newTetrominoNextObj.transform.SetParent(gridController.transform);
 
         // On the first time this is run, there is no next tetromino so we must run
         // SpawnNewTetromino again to properly set the active / ghost tetromino
         if (tetrominoNext == null)
         {
-            tetrominoNext = tetrominoNextObj.GetComponent<BaseTetromino>();
-            SpawnNewTetromino();
+            tetrominoNext = newTetrominoNextObj.GetComponent<BaseTetromino>();
+            SpawnNewTetromino(destroyTetrominoActive);
             return;
         }
 
-        // Clone the old next tetromino to active tetromino
-        if (tetrominoActive != null)
-        {
-            Destroy(tetrominoActive.gameObject);
-        }
-        GameObject tetrominoActiveObj = Instantiate(tetrominoNext.gameObject, gridController.transform);
-        tetrominoActive = tetrominoActiveObj.GetComponent<BaseTetromino>();
-        tetrominoActiveObj.transform.localPosition = new Vector3(tetrominoActive.SpawnX, tetrominoActive.SpawnY);
-
-        // Attempt dropping tetromino 1 space
-        if (!gridController.DropTetrominoOneSpace(tetrominoActive))
-        {
-            Debug.Log("Game over!");
-        }
-
-        // Set the old next tetromino to ghost tetromino
-        if (tetrominoGhost != null)
-        {
-            Destroy(tetrominoGhost.gameObject);
-        }
-        GameObject tetrominoGhostObj = tetrominoNext.gameObject;
-        tetrominoGhost = tetrominoGhostObj.GetComponent<BaseTetromino>();
-        tetrominoGhost.isGhost = true;
-        UpdateGhostTetromino();
+        // Set the old next tetromino to the active/ghost tetromino
+        SetActiveAndGhostTetromino(tetrominoNext, destroyTetrominoActive);
 
         // Set the new next tetromino
-        tetrominoNext = tetrominoNextObj.GetComponent<BaseTetromino>();
-        tetrominoNextObj.transform.localPosition = new Vector3(13, 18);
+        tetrominoNext = newTetrominoNextObj.GetComponent<BaseTetromino>();
+        newTetrominoNextObj.transform.localPosition = new Vector3(13, 18);
+    }
+
+    public void TriggerTetrominoHold()
+    {
+        // Ensure hold can't happen twice in a row before dropping a tetromino
+        if (isHoldTriggered)
+        {
+            return;
+        }
+
+        // Swap active and hold tetromino
+        BaseTetromino temp = tetrominoActive;
+        if (tetrominoHold == null)
+        {
+            SpawnNewTetromino(false);
+        } else
+        {
+            SetActiveAndGhostTetromino(tetrominoHold, false);
+        }
+        tetrominoHold = temp;
+
+        // Reset hold tetromino rotation, and set position
+        tetrominoHold.ResetRotationAndDraw();
+        tetrominoHold.transform.localPosition = new Vector3(-5, 18);
+
+        isHoldTriggered = true;
     }
 
     private void ResetDropTime()

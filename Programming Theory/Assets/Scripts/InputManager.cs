@@ -109,6 +109,10 @@ public class InputManager : MonoBehaviour
         {
             gameManager.PlaceAndSpawnTetromino();
         }
+        else if (Input.GetKeyDown(KeyCode.LeftShift))
+        {
+            gameManager.TriggerTetrominoHold();
+        }
     }
 
     // Helper fn to reset variables for the delayed shift on key hold
