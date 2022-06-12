@@ -24,6 +24,11 @@ public class InputManager : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        if (gameManager.isPaused)
+        {
+            return;
+        }
+
         // Horizontal movement -- immediate action after key down
         if (Input.GetKeyDown(KeyCode.LeftArrow))
         {

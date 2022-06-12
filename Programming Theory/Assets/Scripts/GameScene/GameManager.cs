@@ -1,15 +1,18 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
     [SerializeField] private InputManager inputManager;
     [SerializeField] private GridController gridController;
+    [SerializeField] private UIManager uiManager;
     private BaseTetromino tetrominoNext;
     public BaseTetromino tetrominoActive;
     private BaseTetromino tetrominoGhost;
     private BaseTetromino tetrominoHold;
+    public bool isPaused = false; // Prevents input while a menu is active
     private bool isHoldTriggered = false; // Don't allow hold to be triggered twice in a row before dropping a tetromino
     // Keep track of tetromino queue with two bags. This is because we show a queue, and the index may be the last item in the bag.
     // So we must pre-generate the next bag.
@@ -35,6 +38,11 @@ public class GameManager : MonoBehaviour
 
     private void Update()
     {
+        if (isPaused)
+        {
+            return;
+        }
+
         if (gridController.IsTetrominoGrounded(tetrominoActive))
         {
             // Do not place tetromino until user has not moved for half a second
@@ -107,7 +115,7 @@ public class GameManager : MonoBehaviour
         // Attempt dropping active tetromino 1 space
         if (!gridController.DropTetrominoOneSpace(tetrominoActive))
         {
-            Debug.Log("Game over!");
+            TriggerUiScreenAndPause(UIManager.UIScreen.FailScreen);
         }
 
         // Set the new tetromino to ghost
@@ -209,5 +217,24 @@ public class GameManager : MonoBehaviour
     public void SetIsFastDrop(bool isFast)
     {
         isFastDrop = isFast;
+    }
+
+    private void TriggerUiScreenAndPause(UIManager.UIScreen uiScreen)
+    {
+        isPaused = true;
+        Time.timeScale = 0.0f;
+        uiManager.ToggleUiScreen(uiScreen, true);
+    }
+
+    //private void HideUiScreenAndResume(UIManager.UIScreen uiScreen)
+    //{
+    //    Time.timeScale = 1.0f;
+    //    uiManager.ToggleUiScreen(uiScreen, false);
+    //}
+
+    public void ReturnToMainMenu()
+    {
+        Time.timeScale = 1.0f;
+        SceneManager.LoadScene("MainMenuScene");
     }
 }
