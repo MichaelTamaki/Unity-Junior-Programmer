@@ -110,7 +110,7 @@ public class InputManager : MonoBehaviour
         }
 
         // Hard drop
-        if (Input.GetKeyDown(KeyCode.Space))
+        if (Input.GetKeyDown(KeyCode.Space) && gameManager.IsHardDropPossible())
         {
             gameManager.PlaceAndSpawnTetromino();
         }

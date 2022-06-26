@@ -104,7 +104,7 @@ public class GridController : MonoBehaviour
         }
     }
 
-    public void PlaceTetromino(BaseTetromino tetromino)
+    public int PlaceTetromino(BaseTetromino tetromino)
     {
         // Update grid rows and catch filled rows
         int dropY = GetTetrominoDropY(tetromino);
@@ -121,11 +121,13 @@ public class GridController : MonoBehaviour
         }
 
         // Remove and re-add to the top filled grid rows
+        int linesCleared = 0;
         foreach (GridRow filledRow in filledRows)
         {
             gridRows.Remove(filledRow);
             gridRows.Add(filledRow);
             filledRow.ResetBlocks();
+            linesCleared++;
         }
 
         // Shift all grid rows to correct y position
@@ -133,5 +135,7 @@ public class GridController : MonoBehaviour
         {
             gridRows[y].gameObject.transform.localPosition = new Vector3(0, y);
         }
+
+        return linesCleared;
     }
 }

@@ -19,13 +19,19 @@ public class GameManager : MonoBehaviour
     private readonly System.Type[] tetrominoBagNext = { typeof(TetrominoJ), typeof(TetrominoL), typeof(TetrominoS), typeof(TetrominoZ), typeof(TetrominoT), typeof(TetrominoO), typeof(TetrominoI) };
     private readonly System.Type[] tetrominoBagActive = new System.Type[7];
     private int tetrominoBagIndex = 0;
+    // Game variables
+    private int linesCleared = 0;
+    private int speedLevel = 1;
+    private readonly int speedLevelLinesClearedInterval = 4; // Every x cleared lines, increase the speed level
     // Timing variables
-    private float dropInterval = 0.5f; // How long it takes for the tetromino to automatically drop
-    private readonly float dropIntervalFast = 0.05f; // Interval when down arrow is held
+    private readonly float[] speedLevelDropIntervals = { 1.0f, 1.0f, 0.5f, 0.35f, 0.2f, 0.15f, 0.1f, 0.08f, 0.05f, 0.035f, 0.025f, 0.015f, 0.01f, 0.005f, 0.001f }; // How long it takes for the tetromino to automatically drop, based on speedLevel
+    private readonly float dropIntervalFast = 0.04f; // Interval when down arrow is held
     private bool isFastDrop = false; // is down arrow held
     private float currentDropTime = 0f; // How long the tetromino has been dropping for
     private readonly float lockDelay = 0.5f; // How long it takes to land a piece https://tetris.fandom.com/wiki/Lock_delay
     private float currentLockTime = 0f; // How long the tetromino has been on the ground
+    private float lastSoftDropTime = 0f; // Keep track of the last timestamp where a soft drop occurred
+    private readonly float softDropGracePeriod = 0.3f; // Time between the last soft drop and the next time a hard drop can occur
 
     // Start is called before the first frame update
     void Start()
@@ -34,6 +40,7 @@ public class GameManager : MonoBehaviour
         GenerateNewTetrominoBag(); // Shuffled bag is set to active bag
         gridController.InitializeGrid();
         SpawnNewTetromino(true);
+        UpdateGameUi();
     }
 
     private void Update()
@@ -41,6 +48,30 @@ public class GameManager : MonoBehaviour
         if (isPaused)
         {
             return;
+        }
+
+        if (!gridController.IsTetrominoGrounded(tetrominoActive))
+        {
+            ResetLockTime();
+        }
+
+        // Soft drop tetromino
+        currentDropTime += Time.deltaTime;
+        float currentDropInterval = speedLevelDropIntervals[speedLevel];
+        if (isFastDrop)
+        {
+            // Use currentDropInterval if it is faster than dropIntervalFast
+            currentDropInterval = Mathf.Min(dropIntervalFast, currentDropInterval);
+        }
+        // In case currentDropInterval is smaller than delta time, be able to handle multiple drops per Update call
+        while (currentDropTime > currentDropInterval && !gridController.IsTetrominoGrounded(tetrominoActive))
+        {
+            currentDropTime -= currentDropInterval;
+            if (!gridController.DropTetrominoOneSpace(tetrominoActive))
+            {
+                // This should never occur
+                Debug.LogError("Attempted to drop a tetromino even though it is grounded");
+            }
         }
 
         if (gridController.IsTetrominoGrounded(tetrominoActive))
@@ -52,27 +83,19 @@ public class GameManager : MonoBehaviour
             if (currentLockTime > lockDelay)
             {
                 PlaceAndSpawnTetromino();
-            }
-        }
-        else
-        {
-            // Soft drop tetromino
-            ResetLockTime();
-            currentDropTime += Time.deltaTime;
-            if (currentDropTime > (isFastDrop ? dropIntervalFast : dropInterval))
-            {
-                ResetDropTime();
-                if (!gridController.DropTetrominoOneSpace(tetrominoActive))
-                {
-                    throw new System.Exception("Tried dropping tetromino on space but instead is grounded");
-                }
+                lastSoftDropTime = Time.time;
             }
         }
     }
 
     public void PlaceAndSpawnTetromino()
     {
-        gridController.PlaceTetromino(tetrominoActive);
+        linesCleared += gridController.PlaceTetromino(tetrominoActive);
+        while (linesCleared > speedLevelLinesClearedInterval * speedLevel && speedLevel + 1 < speedLevelDropIntervals.Length)
+        {
+            speedLevel++;
+        }
+        UpdateGameUi();
         SpawnNewTetromino(true);
         isHoldTriggered = false; // Allow hold to be triggered again
     }
@@ -217,6 +240,7 @@ public class GameManager : MonoBehaviour
     public void SetIsFastDrop(bool isFast)
     {
         isFastDrop = isFast;
+        ResetDropTime(); // Prevent case where isFastDrop is set to true when currentDropTime is high. This causes a tetromino to drop multiple times unexpectedly.
     }
 
     private void TriggerUiScreenAndPause(UIManager.UIScreen uiScreen)
@@ -236,5 +260,16 @@ public class GameManager : MonoBehaviour
     {
         Time.timeScale = 1.0f;
         SceneManager.LoadScene("MainMenuScene");
+    }
+
+    private void UpdateGameUi()
+    {
+        uiManager.UpdateGameUiText(linesCleared, speedLevel);
+    }
+
+    // Prevent accidental hard drop right after a soft drop happens (may occur when trying to hard drop, but happens right at the end of the lock time)
+    public bool IsHardDropPossible()
+    {
+        return Time.time - lastSoftDropTime > softDropGracePeriod;
     }
 }
